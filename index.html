@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<title>TrackLoad · 运动负荷追踪</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root {
+  --bg:   #0e0e0e;
+  --bg2:  #181818;
+  --bg3:  #222;
+  --bg4:  #2a2a2a;
+  --border:  rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.14);
+  --text:  #efefef;
+  --text2: #888;
+  --text3: #4a4a4a;
+  --green:      #4ade80;
+  --green-bg:   rgba(74,222,128,0.1);
+  --green-bdr:  rgba(74,222,128,0.25);
+  --amber:      #fbbf24;
+  --amber-bg:   rgba(251,191,36,0.1);
+  --amber-bdr:  rgba(251,191,36,0.25);
+  --orange:     #fb923c;
+  --orange-bg:  rgba(251,146,60,0.1);
+  --orange-bdr: rgba(251,146,60,0.25);
+  --red:        #f87171;
+  --red-bg:     rgba(248,113,113,0.1);
+  --red-bdr:    rgba(248,113,113,0.25);
+  --blue:       #60a5fa;
+  --blue-bg:    rgba(96,165,250,0.1);
+  --teal:       #2dd4bf;
+  --teal-bg:    rgba(45,212,191,0.1);
+  --r: 12px; --rs: 8px; --rxs: 6px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{background:var(--bg);color:var(--text);font-family:-apple-system,'PingFang SC','Helvetica Neue',sans-serif;min-height:100vh;}
+.app{max-width:480px;margin:0 auto;padding-bottom:84px;}
+
+/* ── Header ── */
+.header{padding:16px 16px 4px;display:flex;justify-content:space-between;align-items:flex-start;}
+.header-logo{font-size:20px;font-weight:700;letter-spacing:-0.5px;}
+.header-logo span{color:var(--teal);}
+.header-right{text-align:right;}
+.header-date{font-size:12px;color:var(--text2);}
+.header-streak{font-size:11px;color:var(--amber);margin-top:1px;}
+
+/* ── Nav ── */
+.nav{position:fixed;bottom:0;left:0;right:0;background:rgba(14,14,14,0.96);backdrop-filter:blur(14px);border-top:0.5px solid var(--border);display:flex;z-index:100;max-width:480px;margin:0 auto;}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:9px 4px 13px;cursor:pointer;color:var(--text3);font-size:10px;gap:3px;border:none;background:none;transition:color 0.15s;font-family:inherit;}
+.nav-item.active{color:var(--teal);}
+.nav-icon{font-size:19px;line-height:1;}
+
+/* ── Pages ── */
+.page{display:none;padding:12px 14px;}
+.page.active{display:block;}
+
+/* ── Section label ── */
+.sec{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin:16px 0 8px;display:flex;align-items:center;gap:6px;}
+.sec::after{content:'';flex:1;height:0.5px;background:var(--border);}
+
+/* ── Cards ── */
+.card{background:var(--bg2);border-radius:var(--r);border:0.5px solid var(--border);padding:14px;}
+.card+.card{margin-top:10px;}
+
+/* ── Metric grid ── */
+.mgrid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:10px;}
+.mc{background:var(--bg2);border-radius:var(--rs);border:0.5px solid var(--border);padding:13px 12px;}
+.mc-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:5px;}
+.mc-val{font-size:26px;font-weight:700;line-height:1;letter-spacing:-0.5px;}
+.mc-unit{font-size:12px;font-weight:400;color:var(--text2);margin-left:2px;}
+.mc-sub{font-size:10px;color:var(--text3);margin-top:3px;}
+.mc-trend{font-size:10px;margin-top:2px;}
+.tu{color:var(--green);}
+.td{color:var(--red);}
+.tf{color:var(--text3);}
+
+/* ACWR card zones */
+.acwr-mc{background:var(--bg2);border-radius:var(--rs);border:0.5px solid var(--border);padding:13px 12px;transition:border-color 0.3s,background 0.3s;}
+.zone-sweet{border-color:var(--green-bdr)!important;background:linear-gradient(135deg,var(--bg2),var(--green-bg))!important;}
+.zone-low  {border-color:var(--amber-bdr)!important;background:linear-gradient(135deg,var(--bg2),var(--amber-bg))!important;}
+.zone-warn {border-color:var(--orange-bdr)!important;background:linear-gradient(135deg,var(--bg2),var(--orange-bg))!important;}
+.zone-high {border-color:var(--red-bdr)!important;background:linear-gradient(135deg,var(--bg2),var(--red-bg))!important;}
+
+/* Pills */
+.pill{display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:2px 8px;border-radius:99px;font-weight:600;margin-top:4px;}
+.pg{background:var(--green-bg);color:var(--green);}
+.pa{background:var(--amber-bg);color:var(--amber);}
+.po{background:var(--orange-bg);color:var(--orange);}
+.pr{background:var(--red-bg);color:var(--red);}
+.pn{background:var(--bg3);color:var(--text2);}
+
+/* Stats row */
+.srow{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px;}
+.sb{background:var(--bg3);border-radius:var(--rs);padding:11px 8px;text-align:center;}
+.sb-num{font-size:20px;font-weight:700;}
+.sb-lbl{font-size:9px;color:var(--text3);margin-top:2px;text-transform:uppercase;letter-spacing:0.05em;}
+
+/* Chart */
+.chart-wrap{position:relative;width:100%;}
+
+/* ACWR zone bar */
+.zone-bar{height:6px;border-radius:3px;display:flex;overflow:hidden;margin-bottom:6px;}
+.zb-seg{height:100%;}
+.zone-marker{position:relative;display:flex;justify-content:space-between;font-size:9px;color:var(--text3);padding:0 2px;}
+
+/* ── Methodology panel ── */
+.method-panel{background:var(--bg2);border-radius:var(--r);border:0.5px solid var(--border);overflow:hidden;margin-bottom:10px;}
+.method-header{padding:13px 14px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none;}
+.method-header-left{display:flex;align-items:center;gap:8px;}
+.method-dot{width:8px;height:8px;border-radius:50%;background:var(--teal);}
+.method-title{font-size:13px;font-weight:600;}
+.method-sub{font-size:11px;color:var(--text2);}
+.method-chevron{font-size:12px;color:var(--text3);transition:transform 0.2s;}
+.method-chevron.open{transform:rotate(180deg);}
+.method-body{display:none;border-top:0.5px solid var(--border);padding:14px;}
+.method-body.open{display:block;}
+.method-section{margin-bottom:14px;}
+.method-section:last-child{margin-bottom:0;}
+.method-section-title{font-size:11px;font-weight:600;color:var(--teal);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:7px;}
+.method-text{font-size:12px;color:var(--text2);line-height:1.75;}
+.method-text strong{color:var(--text);font-weight:500;}
+.formula-box{background:var(--bg3);border-radius:var(--rxs);padding:10px 12px;font-size:12px;color:var(--text);font-family:monospace;line-height:1.9;border-left:2px solid var(--teal);margin:8px 0;}
+.warn-box{background:var(--amber-bg);border:0.5px solid var(--amber-bdr);border-radius:var(--rxs);padding:10px 12px;font-size:12px;color:var(--amber);line-height:1.7;margin:8px 0;}
+.info-box{background:var(--blue-bg);border:0.5px solid rgba(96,165,250,0.25);border-radius:var(--rxs);padding:10px 12px;font-size:12px;color:var(--blue);line-height:1.7;margin:8px 0;}
+.zone-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px;}
+.zone-table th{text-align:left;padding:5px 8px;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;font-weight:500;border-bottom:0.5px solid var(--border);}
+.zone-table td{padding:7px 8px;border-bottom:0.5px solid var(--border);}
+.zone-table tr:last-child td{border-bottom:none;}
+
+/* Alert banner */
+.alert-banner{border-radius:var(--rs);padding:11px 13px;margin-bottom:10px;font-size:12px;line-height:1.7;border:0.5px solid;display:none;}
+.alert-banner.show{display:block;}
+.ab-green{background:var(--green-bg);border-color:var(--green-bdr);color:var(--green);}
+.ab-amber{background:var(--amber-bg);border-color:var(--amber-bdr);color:var(--amber);}
+.ab-orange{background:var(--orange-bg);border-color:var(--orange-bdr);color:var(--orange);}
+.ab-red{background:var(--red-bg);border-color:var(--red-bdr);color:var(--red);}
+
+/* ── Forms ── */
+.fcard{background:var(--bg2);border-radius:var(--r);border:0.5px solid var(--border);padding:14px;margin-bottom:10px;}
+.ftitle{font-size:13px;font-weight:600;margin-bottom:12px;}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
+.field{display:flex;flex-direction:column;gap:5px;}
+.field label{font-size:11px;color:var(--text2);}
+input,select,textarea{background:var(--bg3);border:0.5px solid var(--border);border-radius:var(--rs);color:var(--text);font-size:14px;padding:10px 11px;outline:none;width:100%;font-family:inherit;transition:border-color 0.15s;-webkit-appearance:none;}
+input:focus,select:focus{border-color:var(--border2);}
+select option{background:var(--bg3);}
+input[type=range]{padding:0;height:22px;background:none;border:none;-webkit-appearance:none;cursor:pointer;}
+input[type=range]::-webkit-slider-track{height:4px;background:var(--bg3);border-radius:2px;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:var(--text);margin-top:-8px;box-shadow:0 1px 4px rgba(0,0,0,0.4);}
+input[type=date]::-webkit-calendar-picker-indicator{filter:invert(1)opacity(0.3);}
+.rpe-track{width:100%;height:4px;background:var(--bg3);border-radius:2px;margin-top:4px;overflow:hidden;}
+.rpe-fill{height:100%;border-radius:2px;transition:width 0.2s,background 0.2s;}
+.au-preview{background:var(--bg3);border-radius:var(--rs);padding:13px 14px;display:flex;justify-content:space-between;align-items:center;margin:11px 0;}
+.au-num{font-size:34px;font-weight:700;letter-spacing:-1px;color:var(--teal);}
+.btn{width:100%;padding:13px;font-size:14px;font-weight:600;border:none;border-radius:var(--rs);cursor:pointer;transition:opacity 0.15s,transform 0.1s;font-family:inherit;}
+.btn:active{opacity:0.75;transform:scale(0.99);}
+.btn-g{background:var(--green);color:#000;}
+.btn-s{background:var(--bg3);color:var(--text);border:0.5px solid var(--border);}
+.btn-d{background:transparent;color:var(--red);border:0.5px solid var(--red-bdr);}
+.prev-hint{background:var(--bg3);border-radius:var(--rs);padding:10px 12px;margin-bottom:10px;font-size:11px;color:var(--text2);line-height:1.9;display:none;}
+.prev-hint.show{display:block;}
+.asym-warn{color:var(--orange);font-size:11px;margin-top:4px;display:none;}
+.asym-warn.show{display:block;}
+
+/* ── History ── */
+.htabs{display:flex;gap:6px;margin-bottom:12px;}
+.htab{padding:5px 13px;font-size:11px;border:0.5px solid var(--border);border-radius:99px;cursor:pointer;background:none;color:var(--text2);font-family:inherit;transition:all 0.15s;}
+.htab.active{background:var(--text);color:var(--bg);border-color:var(--text);}
+.filter-row{display:flex;gap:5px;margin-bottom:10px;flex-wrap:wrap;}
+.fchip{padding:3px 9px;font-size:10px;border:0.5px solid var(--border);border-radius:99px;cursor:pointer;background:none;color:var(--text2);font-family:inherit;}
+.fchip.active{background:var(--bg3);color:var(--text);border-color:var(--border2);}
+.log-item{background:var(--bg2);border-radius:var(--rs);border:0.5px solid var(--border);padding:12px 13px;margin-bottom:7px;}
+.log-hd{display:flex;justify-content:space-between;align-items:flex-start;}
+.log-title{font-size:13px;font-weight:500;}
+.log-au{font-size:17px;font-weight:700;color:var(--teal);}
+.log-meta{font-size:10px;color:var(--text3);margin-top:3px;}
+.log-acts{display:flex;gap:10px;margin-top:8px;}
+.lbtn{font-size:10px;background:none;border:none;cursor:pointer;padding:0;font-family:inherit;}
+.lbtn-e{color:var(--blue);}
+.lbtn-d{color:var(--red);}
+.empty{text-align:center;padding:36px 0;font-size:12px;color:var(--text3);}
+
+/* ── Export ── */
+.exp-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:14px;}
+.exp-stat{background:var(--bg3);border-radius:var(--rs);padding:14px;}
+.exp-num{font-size:24px;font-weight:700;}
+.exp-lbl{font-size:10px;color:var(--text3);margin-top:2px;}
+.exp-btns{display:flex;flex-direction:column;gap:8px;}
+
+/* ── Modal ── */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:200;display:none;align-items:flex-end;justify-content:center;}
+.overlay.open{display:flex;}
+.modal{background:var(--bg2);border-radius:var(--r) var(--r) 0 0;padding:18px 14px 32px;width:100%;max-width:480px;border-top:0.5px solid var(--border2);}
+.modal-title{font-size:15px;font-weight:600;margin-bottom:14px;display:flex;justify-content:space-between;}
+.mclose{font-size:18px;color:var(--text2);cursor:pointer;background:none;border:none;font-family:inherit;}
+
+/* ── Toast ── */
+.toast{position:fixed;bottom:92px;left:50%;transform:translateX(-50%)translateY(10px);background:var(--bg3);border:0.5px solid var(--border2);color:var(--text);padding:9px 18px;border-radius:99px;font-size:12px;opacity:0;transition:all 0.22s;pointer-events:none;z-index:999;white-space:nowrap;max-width:calc(100% - 28px);text-align:center;}
+.toast.show{opacity:1;transform:translateX(-50%)translateY(0);}
+
+.divider{height:0.5px;background:var(--border);margin:14px 0;}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- Header -->
+<div class="header">
+  <div>
+    <div class="header-logo">Track<span>Load</span></div>
+    <div style="font-size:10px;color:var(--text3);margin-top:1px;">EWMA · 运动负荷追踪</div>
+  </div>
+  <div class="header-right">
+    <div class="header-date" id="hdr-date"></div>
+    <div class="header-streak" id="hdr-streak"></div>
+  </div>
+</div>
+
+<!-- ══════════ DASHBOARD ══════════ -->
+<div id="page-dash" class="page active">
+
+  <!-- Dynamic alert banner -->
+  <div id="alert-banner" class="alert-banner"></div>
+
+  <!-- ACWR zone indicator -->
+  <div style="margin-bottom:8px;">
+    <div class="zone-bar">
+      <div class="zb-seg" style="width:13%;background:var(--amber);opacity:0.5;"></div>
+      <div class="zb-seg" style="width:34%;background:var(--green);opacity:0.7;"></div>
+      <div class="zb-seg" style="width:13%;background:var(--orange);opacity:0.6;"></div>
+      <div class="zb-seg" style="width:40%;background:var(--red);opacity:0.5;"></div>
+    </div>
+    <div class="zone-marker">
+      <span>0</span><span>0.8</span><span>1.3</span><span>1.5</span><span>2+</span>
+    </div>
+    <div id="acwr-marker-wrap" style="position:relative;height:0;"></div>
+  </div>
+
+  <div class="mgrid">
+    <div class="mc">
+      <div class="mc-lbl">今日负荷</div>
+      <div class="mc-val" id="d-today" style="color:var(--teal);">0<span class="mc-unit">AU</span></div>
+      <div class="mc-sub">RPE × 时长</div>
+    </div>
+    <div class="acwr-mc" id="acwr-card">
+      <div class="mc-lbl">ACWR (EWMA)</div>
+      <div class="mc-val" id="d-acwr">—</div>
+      <div id="acwr-pill" class="pill pn">暂无数据</div>
+    </div>
+    <div class="mc">
+      <div class="mc-lbl">急性 ATL</div>
+      <div class="mc-val" id="d-atl" style="color:var(--red);">—</div>
+      <div class="mc-sub">EWMA λ=0.25</div>
+      <div class="mc-trend" id="d-atl-t"></div>
+    </div>
+    <div class="mc">
+      <div class="mc-lbl">慢性 CTL</div>
+      <div class="mc-val" id="d-ctl" style="color:var(--green);">—</div>
+      <div class="mc-sub">EWMA λ=0.069</div>
+      <div class="mc-trend" id="d-ctl-t"></div>
+    </div>
+  </div>
+
+  <div class="srow">
+    <div class="sb"><div class="sb-num" id="st-total">0</div><div class="sb-lbl">总次数</div></div>
+    <div class="sb"><div class="sb-num" id="st-week">0</div><div class="sb-lbl">本周</div></div>
+    <div class="sb"><div class="sb-num" id="st-streak" style="color:var(--amber);">0</div><div class="sb-lbl">连续天</div></div>
+  </div>
+
+  <!-- Methodology panel -->
+  <div class="method-panel" id="method-panel">
+    <div class="method-header" onclick="toggleMethod()">
+      <div class="method-header-left">
+        <div class="method-dot"></div>
+        <div>
+          <div class="method-title">方法论说明 & 注意事项</div>
+          <div class="method-sub">EWMA · ACWR · sRPE 规范</div>
+        </div>
+      </div>
+      <div class="method-chevron" id="method-chev">▼</div>
+    </div>
+    <div class="method-body" id="method-body">
+
+      <div class="method-section">
+        <div class="method-section-title">① sRPE 录入规范</div>
+        <div class="warn-box">
+          ⏱ <strong>必须在训练结束后 15–30 分钟内</strong>评估 RPE，过早评分会因"近因效应"导致高估疲劳，过晚则会低估。<br/>
+          建议训练结束 → 冷静 15min → 再打开 App 录入。
+        </div>
+        <div class="method-text">
+          <strong>RPE 参考标准（Borg CR-10 量表）：</strong><br/>
+          0 完全休息　1 极轻松　2 轻松　3 轻度用力<br/>
+          4 有些用力　5 中等　6 有些困难　7 困难<br/>
+          8 很困难　9 极其困难　10 极限强度（最大用力）<br/><br/>
+          学术来源：<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3474323/" target="_blank" style="color:var(--blue);">Foster et al. (2001) · PubMed</a>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="method-section">
+        <div class="method-section-title">② ACWR 公式说明</div>
+        <div class="method-text">急性慢性负荷比 = 短期疲劳 ÷ 长期体能储备，反映当前负荷与适应能力的匹配程度。</div>
+        <div class="formula-box">
+ACWR = ATL (急性 EWMA) ÷ CTL (慢性 EWMA)
+        </div>
+        <table class="zone-table">
+          <tr><th>ACWR 区间</th><th>状态</th><th>建议</th></tr>
+          <tr><td style="color:var(--amber);">< 0.8</td><td>负荷不足</td><td>可适当增加训练量</td></tr>
+          <tr><td style="color:var(--green);">0.8 – 1.3</td><td>甜蜜区间 ✓</td><td>维持当前节奏</td></tr>
+          <tr><td style="color:var(--orange);">1.3 – 1.5</td><td>注意区</td><td>减少非必要高强度</td></tr>
+          <tr><td style="color:var(--red);">> 1.5</td><td>危险区 ⚠</td><td>立即减载，防止伤病</td></tr>
+        </table>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="method-section">
+        <div class="method-section-title">③ 滚动平均法的弊端</div>
+        <div class="method-text">
+          传统方法（RA）将 7 天和 28 天内<strong>每一天的负荷权重视为相等</strong>。<br/>
+          这意味着：<br/>
+          · 昨天的大重量深蹲与三周前的轻松训练对 CTL 的影响完全一样<br/>
+          · 无法捕捉近期负荷对神经-内分泌系统的真实冲击<br/>
+          · 在数据较少时（前28天）会严重低估疲劳
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="method-section">
+        <div class="method-section-title">④ 指数加权移动平均（EWMA）的优势</div>
+        <div class="method-text"><strong>近期训练权重更大，越旧的数据影响越小</strong>，更符合人体生理适应规律。</div>
+        <div class="formula-box">
+λ = 2 ÷ (N + 1)
+急性 λ_acute  = 2 ÷ (7+1)  = 0.25
+慢性 λ_chronic = 2 ÷ (28+1) ≈ 0.069
+
+今日 EWMA = (今日 Load × λ) + (昨日 EWMA × (1−λ))
+第一天冷启动：EWMA₀ = 当天实际负荷
+        </div>
+        <div class="method-text">
+          对比 RA：昨天 800AU 深蹲日在 EWMA 中贡献 <strong>0.25 × 800 = 200AU</strong> 到今日 ATL，而 RA 中仅贡献 800÷7 ≈ 114AU。<br/>
+          神经疲劳评估更准确，被 Smartabase、STATSports 等专业系统采用。
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="method-section">
+        <div class="method-section-title">⑤ 短期数据偏差提示</div>
+        <div class="info-box">
+          📅 EWMA 需要 <strong>至少 7 天</strong>数据 ATL 才趋于稳定，<strong>28 天</strong>数据 CTL 才可靠。<br/><br/>
+          前期 ACWR 可能偏高或偏低——这是数学冷启动问题，<strong>不代表你真的在危险区</strong>。<br/><br/>
+          建议：制定 7 天微周期 + 28 天中周期训练计划后再参考 ACWR 做决策。若短期内 ACWR 超过 1.5，是因为超负荷刺激——配合后续合理<strong>减载周</strong>，即可实现渐进超负荷，提高慢性体能基线。
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="sec">负荷趋势</div>
+  <div class="card" style="padding:13px 10px;">
+    <div class="chart-wrap" style="height:155px;"><canvas id="loadChart"></canvas></div>
+  </div>
+
+  <div class="sec">ATL vs CTL (EWMA)</div>
+  <div class="card" style="padding:13px 10px;">
+    <div style="display:flex;gap:14px;margin-bottom:8px;flex-wrap:wrap;">
+      <span style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text2);"><span style="width:18px;height:2px;background:var(--red);display:inline-block;border-radius:1px;"></span>ATL 急性</span>
+      <span style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text2);"><span style="width:18px;height:2px;background:var(--green);display:inline-block;border-radius:1px;"></span>CTL 慢性</span>
+    </div>
+    <div class="chart-wrap" style="height:145px;"><canvas id="acwrChart"></canvas></div>
+  </div>
+
+  <div class="sec">ACWR 历史</div>
+  <div class="card" style="padding:13px 10px;">
+    <div style="display:flex;gap:14px;margin-bottom:8px;flex-wrap:wrap;">
+      <span style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text2);"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--green);opacity:0.5;"></span>甜蜜区</span>
+      <span style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text2);"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--red);opacity:0.5;"></span>危险区 &gt;1.5</span>
+    </div>
+    <div class="chart-wrap" style="height:145px;"><canvas id="acwrHistChart"></canvas></div>
+  </div>
+
+  <div class="sec">最新体测</div>
+  <div class="card" id="test-card">
+    <div id="test-empty" style="color:var(--text3);font-size:12px;text-align:center;padding:12px 0;">暂无体测记录，去测试页录入</div>
+    <div id="test-grid" style="display:none;">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;" id="test-inner"></div>
+      <div style="font-size:10px;color:var(--text3);margin-top:8px;" id="test-date"></div>
+    </div>
+  </div>
+
+  <div class="sec">CMJ & RSI</div>
+  <div class="card" style="padding:13px 10px;" id="cmj-wrap">
+    <div id="cmj-empty" style="color:var(--text3);font-size:12px;text-align:center;padding:14px 0;">录入 2 次以上体测后显示</div>
+    <div class="chart-wrap" style="height:145px;display:none;" id="cmj-inner"><canvas id="cmjChart"></canvas></div>
+  </div>
+
+</div><!-- /dash -->
+
+<!-- ══════════ LOG LOAD ══════════ -->
+<div id="page-log" class="page">
+  <div class="sec" style="margin-top:4px;">录入训练负荷</div>
+
+  <div class="warn-box" style="margin-bottom:10px;font-size:11px;">
+    ⏱ 请在训练结束 <strong>15–30 分钟后</strong>再录入，避免近因效应影响 RPE 评估
+  </div>
+
+  <div class="fcard">
+    <div class="frow">
+      <div class="field"><label>训练日期</label><input type="date" id="ll-date"/></div>
+      <div class="field"><label>训练类型</label>
+        <select id="ll-type">
+          <option>篮球训练</option><option>力量训练</option><option>有氧训练</option>
+          <option>比赛</option><option>恢复训练</option><option>其他</option>
+        </select>
+      </div>
+    </div>
+    <div class="frow">
+      <div class="field"><label>时长（分钟）</label><input type="number" id="ll-dur" min="10" max="360" value="90"/></div>
+      <div class="field">
+        <label>RPE &nbsp;<span id="rpe-lbl" style="font-weight:700;color:var(--text);">6</span><span style="color:var(--text3);">/10</span></label>
+        <input type="range" id="ll-rpe" min="1" max="10" value="6" step="1"/>
+        <div class="rpe-track"><div class="rpe-fill" id="rpe-fill"></div></div>
+        <div style="font-size:10px;color:var(--text3);margin-top:3px;" id="rpe-desc">有些困难</div>
+      </div>
+    </div>
+    <div class="au-preview">
+      <div>
+        <div style="font-size:10px;color:var(--text3);margin-bottom:2px;">本次负荷 (sRPE)</div>
+        <div class="au-num" id="au-prev">540</div>
+      </div>
+      <div style="text-align:right;font-size:10px;color:var(--text3);">时长 × RPE<br/>= AU 单位</div>
+    </div>
+    <div class="field" style="margin-bottom:12px;"><label>备注</label><input type="text" id="ll-note" placeholder="今天感觉如何…"/></div>
+    <button class="btn btn-g" onclick="logLoad()">记录训练</button>
+  </div>
+
+  <div style="background:var(--bg2);border-radius:var(--rs);padding:11px 13px;border:0.5px solid var(--border);font-size:11px;color:var(--text3);line-height:1.9;">
+    <span style="color:var(--text2);font-weight:500;">Borg CR-10 参考</span><br/>
+    1–2 极轻松 · 3–4 轻松 · 5–6 适中 · 7–8 困难 · 9–10 极限
+  </div>
+</div>
+
+<!-- ══════════ LOG TEST ══════════ -->
+<div id="page-test" class="page">
+  <div class="sec" style="margin-top:4px;">录入体能测试</div>
+  <div id="prev-hint" class="prev-hint"></div>
+
+  <div class="fcard">
+    <div class="ftitle">基础信息</div>
+    <div class="frow">
+      <div class="field"><label>测试日期</label><input type="date" id="ct-date"/></div>
+      <div class="field"><label>体重 (kg)</label><input type="number" id="ct-bw" placeholder="75" step="0.1"/></div>
+    </div>
+    <div class="divider"></div>
+    <div class="ftitle" style="font-size:12px;color:var(--text2);">跳跃测试</div>
+    <div class="frow">
+      <div class="field"><label>CMJ (cm)</label><input type="number" id="ct-cmj" placeholder="45" step="0.1"/></div>
+      <div class="field"><label>SJ (cm)</label><input type="number" id="ct-sj" placeholder="40" step="0.1"/></div>
+    </div>
+    <div class="frow">
+      <div class="field"><label>RSI 指数</label><input type="number" id="ct-rsi" placeholder="2.0" step="0.01"/></div>
+      <div class="field"><label>立定跳远 (cm)</label><input type="number" id="ct-bj" placeholder="250" step="1"/></div>
+    </div>
+    <div class="frow">
+      <div class="field"><label>单腿跳 左 (cm)</label><input type="number" id="ct-slL" placeholder="22" step="0.1" oninput="checkAsym()"/></div>
+      <div class="field"><label>单腿跳 右 (cm)</label><input type="number" id="ct-slR" placeholder="23" step="0.1" oninput="checkAsym()"/></div>
+    </div>
+    <div class="asym-warn" id="asym-sl">⚠ 单腿跳左右差 &gt;10%，注意不对称</div>
+    <div class="frow">
+      <div class="field"><label>侧向跳 左 (cm)</label><input type="number" id="ct-lhL" placeholder="40" step="0.1" oninput="checkAsym()"/></div>
+      <div class="field"><label>侧向跳 右 (cm)</label><input type="number" id="ct-lhR" placeholder="42" step="0.1" oninput="checkAsym()"/></div>
+    </div>
+    <div class="asym-warn" id="asym-lh">⚠ 侧向跳左右差 &gt;10%，注意不对称</div>
+    <div class="divider"></div>
+    <div class="ftitle" style="font-size:12px;color:var(--text2);">速度 & 力量</div>
+    <div class="frow">
+      <div class="field"><label>10M 冲刺 (s)</label><input type="number" id="ct-10m" placeholder="1.8" step="0.01"/></div>
+      <div class="field"><label>5-0-5 变向 (s)</label><input type="number" id="ct-505" placeholder="2.4" step="0.01"/></div>
+    </div>
+    <div class="frow">
+      <div class="field"><label>深蹲 1RM (kg)</label><input type="number" id="ct-sq" placeholder="120" step="1"/></div>
+      <div class="field"><label>握力 (kg)</label><input type="number" id="ct-grip" placeholder="50" step="0.5"/></div>
+    </div>
+    <div class="frow">
+      <div class="field"><label>体脂率 (%)</label><input type="number" id="ct-bf" placeholder="15" step="0.1"/></div>
+    </div>
+    <div class="divider"></div>
+    <div class="field" style="margin-bottom:12px;"><label>备注</label><input type="text" id="ct-note" placeholder="测试条件、状态…"/></div>
+    <button class="btn btn-g" onclick="logTest()">保存测试数据</button>
+  </div>
+</div>
+
+<!-- ══════════ HISTORY ══════════ -->
+<div id="page-history" class="page">
+  <div class="htabs">
+    <button class="htab active" onclick="showHTab('load',this)">训练负荷</button>
+    <button class="htab" onclick="showHTab('tests',this)">体能测试</button>
+  </div>
+  <div id="ht-load">
+    <div class="filter-row" id="type-filters"></div>
+    <div id="load-list"></div>
+  </div>
+  <div id="ht-tests" style="display:none;"><div id="test-list"></div></div>
+</div>
+
+<!-- ══════════ EXPORT ══════════ -->
+<div id="page-export" class="page">
+  <div class="sec" style="margin-top:4px;">数据管理</div>
+  <div class="card">
+    <div class="exp-grid">
+      <div class="exp-stat"><div class="exp-num" id="exp-lc">0</div><div class="exp-lbl">训练记录</div></div>
+      <div class="exp-stat"><div class="exp-num" id="exp-tc">0</div><div class="exp-lbl">体测记录</div></div>
+    </div>
+    <div class="exp-btns">
+      <button class="btn btn-s" onclick="exportCSV('load')">⬇ 导出训练负荷 CSV</button>
+      <button class="btn btn-s" onclick="exportCSV('tests')">⬇ 导出体能测试 CSV</button>
+      <button class="btn btn-s" onclick="exportJSON()">⬇ 备份全部数据 JSON</button>
+    </div>
+  </div>
+  <div class="sec">数据恢复</div>
+  <div class="card">
+    <p style="font-size:11px;color:var(--text3);margin-bottom:10px;line-height:1.7;">从 JSON 备份文件恢复数据，换设备换浏览器时使用。</p>
+    <div class="field" style="margin-bottom:10px;"><label>选择备份文件 (.json)</label><input type="file" id="import-file" accept=".json" style="font-size:12px;padding:8px 10px;"/></div>
+    <button class="btn btn-s" onclick="importJSON()">恢复数据</button>
+  </div>
+  <div class="sec">危险操作</div>
+  <div class="card">
+    <p style="font-size:11px;color:var(--text3);margin-bottom:10px;">清空前建议先备份 JSON。</p>
+    <button class="btn btn-d" onclick="clearAll()">清空所有数据</button>
+  </div>
+</div>
+
+</div><!-- /app -->
+
+<!-- Bottom Nav -->
+<div class="nav">
+  <button class="nav-item active" onclick="showPage('dash',this)"><span class="nav-icon">⚡</span><span>仪表盘</span></button>
+  <button class="nav-item" onclick="showPage('log',this)"><span class="nav-icon">🏃</span><span>训练</span></button>
+  <button class="nav-item" onclick="showPage('test',this)"><span class="nav-icon">📊</span><span>体测</span></button>
+  <button class="nav-item" onclick="showPage('history',this)"><span class="nav-icon">📋</span><span>记录</span></button>
+  <button class="nav-item" onclick="showPage('export',this)"><span class="nav-icon">💾</span><span>数据</span></button>
+</div>
+
+<!-- Edit Modal -->
+<div class="overlay" id="edit-modal">
+  <div class="modal">
+    <div class="modal-title"><span>编辑训练记录</span><button class="mclose" onclick="closeModal()">✕</button></div>
+    <input type="hidden" id="edit-id"/>
+    <div class="frow">
+      <div class="field"><label>日期</label><input type="date" id="edit-date"/></div>
+      <div class="field"><label>类型</label>
+        <select id="edit-type"><option>篮球训练</option><option>力量训练</option><option>有氧训练</option><option>比赛</option><option>恢复训练</option><option>其他</option></select>
+      </div>
+    </div>
+    <div class="frow">
+      <div class="field"><label>时长 (min)</label><input type="number" id="edit-dur"/></div>
+      <div class="field"><label>RPE</label><input type="number" id="edit-rpe" min="1" max="10"/></div>
+    </div>
+    <div class="field" style="margin-bottom:12px;"><label>备注</label><input type="text" id="edit-note"/></div>
+    <button class="btn btn-g" onclick="saveEdit()">保存修改</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Constants ──────────────────────────────────────
+const L_ACUTE  = 0.25;    // λ = 2/(7+1)
+const L_CHRONIC = 2/29;   // λ = 2/(28+1) ≈ 0.069
+const RPE_DESC = ['','极轻松','轻松','轻松','有些用力','有些用力','有些困难','困难','很困难','极其困难','极限强度'];
+
+let loads = JSON.parse(localStorage.getItem('tl_loads')||'[]');
+let tests  = JSON.parse(localStorage.getItem('tl_tests') ||'[]');
+let charts = {};
+let curHTab = 'load', curTypeFilter = 'all';
+
+function save(){ localStorage.setItem('tl_loads',JSON.stringify(loads)); localStorage.setItem('tl_tests',JSON.stringify(tests)); }
+function toast(msg,ms=2200){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),ms); }
+function today(){ return new Date().toISOString().slice(0,10); }
+function fmt(d){ return d.slice(5).replace('-','/'); }
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,5); }
+
+// ── EWMA engine ────────────────────────────────────
+// Returns array of {date, atl, ctl, acwr} for each day in dates[]
+function calcEWMA(dates){
+  let atl=0, ctl=0, initiated=false;
+  return dates.map((d,i)=>{
+    const load = loads.filter(s=>s.date===d).reduce((s,x)=>s+x.au,0);
+    if(!initiated && load>0){ atl=load; ctl=load; initiated=true; }
+    else if(initiated){
+      atl = load*L_ACUTE  + atl*(1-L_ACUTE);
+      ctl = load*L_CHRONIC + ctl*(1-L_CHRONIC);
+    }
+    const acwr = ctl>1 ? atl/ctl : 0;
+    return { date:d, load, atl:+atl.toFixed(1), ctl:+ctl.toFixed(1), acwr:+acwr.toFixed(3) };
+  });
+}
+
+function getRange(n){
+  const arr=[];
+  for(let i=n-1;i>=0;i--){ const d=new Date(); d.setDate(d.getDate()-i); arr.push(d.toISOString().slice(0,10)); }
+  return arr;
+}
+
+function getStreak(){
+  let s=0, d=new Date();
+  while(true){
+    const ds=d.toISOString().slice(0,10);
+    if(loads.some(x=>x.date===ds)){ s++; d.setDate(d.getDate()-1); } else break;
+  }
+  return s;
+}
+
+function acwrZone(v){ if(v<=0) return 'none'; if(v<0.8) return 'low'; if(v<=1.3) return 'sweet'; if(v<=1.5) return 'warn'; return 'high'; }
+
+function mkChart(id,cfg){
+  if(charts[id]){ charts[id].destroy(); delete charts[id]; }
+  const c=document.getElementById(id); if(!c) return;
+  charts[id]=new Chart(c,cfg);
+}
+
+// ── Dashboard ──────────────────────────────────────
+function renderDashboard(){
+  const now=new Date();
+  document.getElementById('hdr-date').textContent=now.toLocaleDateString('zh-CN',{month:'short',day:'numeric',weekday:'short'});
+  const streak=getStreak();
+  document.getElementById('hdr-streak').textContent=streak>1?`🔥 连续${streak}天`:'';
+
+  const td=today();
+  const todayLoad=loads.filter(s=>s.date===td).reduce((s,x)=>s+x.au,0);
+  document.getElementById('d-today').innerHTML=todayLoad+'<span class="mc-unit">AU</span>';
+
+  // Use 60 days for more stable EWMA
+  const dates60=getRange(60);
+  const ewma60=calcEWMA(dates60);
+  const last=ewma60[ewma60.length-1];
+  const prev=ewma60[ewma60.length-8]||ewma60[0];
+
+  document.getElementById('d-atl').textContent=Math.round(last.atl)||'—';
+  document.getElementById('d-ctl').textContent=Math.round(last.ctl)||'—';
+
+  function trendHtml(cur,p){ const d=Math.round(cur-p); if(!d) return '<span class="tf">→ 持平</span>'; return d>0?`<span class="tu">↑ +${d}</span>`:`<span class="td">↓ ${d}</span>`; }
+  document.getElementById('d-atl-t').innerHTML=last.atl>0?trendHtml(last.atl,prev.atl):'';
+  document.getElementById('d-ctl-t').innerHTML=last.ctl>0?trendHtml(last.ctl,prev.ctl):'';
+
+  const acwr=last.acwr;
+  const acwrEl=document.getElementById('d-acwr');
+  const pill=document.getElementById('acwr-pill');
+  const card=document.getElementById('acwr-card');
+  const banner=document.getElementById('alert-banner');
+  banner.className='alert-banner';
+  card.className='acwr-mc';
+
+  if(acwr>0){
+    acwrEl.textContent=acwr.toFixed(2);
+    const zone=acwrZone(acwr);
+    if(zone==='low'){ pill.className='pill pa'; pill.textContent='负荷不足'; card.classList.add('zone-low'); banner.classList.add('alert-banner','show','ab-amber'); banner.textContent='💤 当前负荷不足（ACWR < 0.8）——可适度增加训练量，逐步提升慢性体能基线。'; }
+    else if(zone==='sweet'){ pill.className='pill pg'; pill.textContent='甜蜜区间 ✓'; card.classList.add('zone-sweet'); }
+    else if(zone==='warn'){ pill.className='pill po'; pill.textContent='注意区 1.3–1.5'; card.classList.add('zone-warn'); banner.classList.add('alert-banner','show','ab-orange'); banner.textContent='⚠ ACWR 进入注意区（1.3–1.5）——减少非必要高强度，避免连续疲劳累积。'; }
+    else { pill.className='pill pr'; pill.textContent='危险区 ⚠ > 1.5'; card.classList.add('zone-high'); banner.classList.add('alert-banner','show','ab-red'); banner.innerHTML='🔴 <strong>高伤病风险！</strong> ACWR > 1.5——立即安排减载。短期超负荷是超量恢复的前提，但必须配合合理减载周，才能实现渐进超负荷效果。'; }
+  } else {
+    acwrEl.textContent='—'; pill.className='pill pn'; pill.textContent='暂无数据';
+  }
+
+  // Stats
+  const weekStart=new Date(); weekStart.setDate(weekStart.getDate()-7);
+  document.getElementById('st-total').textContent=loads.length;
+  document.getElementById('st-week').textContent=loads.filter(s=>s.date>=weekStart.toISOString().slice(0,10)).length;
+  document.getElementById('st-streak').textContent=streak;
+
+  // Load bar chart (30d)
+  const dates30=dates60.slice(-30);
+  const ewma30=ewma60.slice(-30);
+  const labels=dates30.map(d=>fmt(d));
+  mkChart('loadChart',{
+    type:'bar',
+    data:{ labels, datasets:[{ data:dates30.map(d=>loads.filter(s=>s.date===d).reduce((s,x)=>s+x.au,0)), backgroundColor:'rgba(45,212,191,0.55)', borderRadius:3, label:'AU' }]},
+    options:{ responsive:true,maintainAspectRatio:false, plugins:{legend:{display:false},tooltip:{callbacks:{label:v=>v.raw+' AU'}}},
+      scales:{ x:{ticks:{font:{size:9},autoSkip:true,maxTicksLimit:8,maxRotation:0,color:'#4a4a4a'},grid:{display:false},border:{display:false}}, y:{beginAtZero:true,ticks:{font:{size:9},color:'#4a4a4a'},grid:{color:'rgba(255,255,255,0.04)'},border:{display:false}} } }
+  });
+
+  // ATL/CTL
+  mkChart('acwrChart',{
+    type:'line',
+    data:{ labels, datasets:[
+      { label:'ATL', data:ewma30.map(x=>x.atl), borderColor:'#f87171', fill:false, tension:0.4, pointRadius:0, borderWidth:1.5 },
+      { label:'CTL', data:ewma30.map(x=>x.ctl), borderColor:'#4ade80', fill:false, tension:0.4, pointRadius:0, borderWidth:1.5 }
+    ]},
+    options:{ responsive:true,maintainAspectRatio:false, plugins:{legend:{display:false}},
+      scales:{ x:{ticks:{font:{size:9},autoSkip:true,maxTicksLimit:8,maxRotation:0,color:'#4a4a4a'},grid:{display:false},border:{display:false}}, y:{beginAtZero:true,ticks:{font:{size:9},color:'#4a4a4a'},grid:{color:'rgba(255,255,255,0.04)'},border:{display:false}} } }
+  });
+
+  // ACWR history with color zones
+  const acwrVals=ewma30.map(x=>x.acwr>0?x.acwr:null);
+  const acwrColors=acwrVals.map(v=>{ if(!v) return 'rgba(255,255,255,0.1)'; if(v<0.8) return '#fbbf24'; if(v<=1.3) return '#4ade80'; if(v<=1.5) return '#fb923c'; return '#f87171'; });
+  mkChart('acwrHistChart',{
+    type:'bar',
+    data:{ labels, datasets:[
+      { data:acwrVals, backgroundColor:acwrColors, borderRadius:3, label:'ACWR', barThickness:'flex' },
+    ]},
+    options:{ responsive:true,maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{callbacks:{label:v=>v.raw?'ACWR: '+v.raw.toFixed(2):''}} },
+      scales:{
+        x:{ticks:{font:{size:9},autoSkip:true,maxTicksLimit:8,maxRotation:0,color:'#4a4a4a'},grid:{display:false},border:{display:false}},
+        y:{beginAtZero:true,max:2.2,ticks:{font:{size:9},color:'#4a4a4a'},grid:{color:'rgba(255,255,255,0.04)'},border:{display:false}}
+      }
+    }
+  });
+
+  // Latest test
+  const latest=tests.length>0?[...tests].sort((a,b)=>b.date.localeCompare(a.date))[0]:null;
+  if(latest){
+    document.getElementById('test-empty').style.display='none';
+    document.getElementById('test-grid').style.display='block';
+    document.getElementById('test-date').textContent='最近测试：'+latest.date;
+    const items=[{l:'CMJ',v:latest.cmj,u:'cm'},{l:'SJ',v:latest.sj,u:'cm'},{l:'RSI',v:latest.rsi,u:''},{l:'10M',v:latest.sprint10m,u:'s'},{l:'深蹲1RM',v:latest.sq1rm,u:'kg'},{l:'体重',v:latest.bw,u:'kg'}];
+    document.getElementById('test-inner').innerHTML=items.map(i=>`<div style="background:var(--bg3);border-radius:var(--rs);padding:9px 7px;text-align:center;"><div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;">${i.l}</div><div style="font-size:16px;font-weight:700;margin-top:3px;">${i.v!=null?i.v+'<span style="font-size:9px;color:var(--text3);margin-left:1px;">'+i.u+'</span>':'—'}</div></div>`).join('');
+  } else {
+    document.getElementById('test-empty').style.display='block';
+    document.getElementById('test-grid').style.display='none';
+  }
+
+  // CMJ chart
+  const st=[...tests].sort((a,b)=>a.date.localeCompare(b.date)).slice(-15);
+  if(st.length>=2){
+    document.getElementById('cmj-empty').style.display='none';
+    document.getElementById('cmj-inner').style.display='block';
+    mkChart('cmjChart',{type:'bar',data:{labels:st.map(t=>fmt(t.date)),datasets:[
+      {type:'bar',label:'CMJ',data:st.map(t=>t.cmj||null),backgroundColor:'rgba(45,212,191,0.45)',borderRadius:3,yAxisID:'y'},
+      {type:'line',label:'RSI',data:st.map(t=>t.rsi||null),borderColor:'#60a5fa',fill:false,tension:0.3,pointRadius:3,pointBackgroundColor:'#60a5fa',borderWidth:1.5,yAxisID:'y2'}
+    ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{ticks:{font:{size:9},maxRotation:0,color:'#4a4a4a'},grid:{display:false},border:{display:false}},y:{beginAtZero:true,ticks:{font:{size:9},color:'#4a4a4a'},position:'left',grid:{color:'rgba(255,255,255,0.04)'},border:{display:false}},y2:{beginAtZero:true,ticks:{font:{size:9},color:'#4a4a4a'},position:'right',grid:{drawOnChartArea:false},border:{display:false}}}}});
+  } else {
+    document.getElementById('cmj-empty').style.display='block';
+    document.getElementById('cmj-inner').style.display='none';
+  }
+}
+
+// ── Log Load ───────────────────────────────────────
+function initLogForm(){
+  document.getElementById('ll-date').value=today();
+  const rpe=document.getElementById('ll-rpe'), dur=document.getElementById('ll-dur');
+  function upd(){ const v=parseInt(rpe.value); document.getElementById('rpe-lbl').textContent=v; document.getElementById('rpe-desc').textContent=RPE_DESC[v]; const pct=v/10*100; const f=document.getElementById('rpe-fill'); f.style.width=pct+'%'; f.style.background=v<=4?'#4ade80':v<=6?'#fbbf24':'#f87171'; document.getElementById('au-prev').textContent=v*(parseInt(dur.value)||0); }
+  rpe.addEventListener('input',upd); dur.addEventListener('input',()=>{ document.getElementById('au-prev').textContent=parseInt(rpe.value)*(parseInt(dur.value)||0); }); upd();
+}
+function logLoad(){
+  const date=document.getElementById('ll-date').value, type=document.getElementById('ll-type').value;
+  const duration=parseInt(document.getElementById('ll-dur').value), rpe=parseInt(document.getElementById('ll-rpe').value);
+  const note=document.getElementById('ll-note').value.trim();
+  if(!date||!duration||!rpe){ toast('请填写完整信息'); return; }
+  loads.push({id:uid(),date,type,duration,rpe,au:duration*rpe,note}); save();
+  document.getElementById('ll-note').value='';
+  toast(`已记录 ${type} · ${duration*rpe} AU ✓`);
+}
+
+// ── Log Test ───────────────────────────────────────
+function initTestForm(){ document.getElementById('ct-date').value=today(); }
+function renderPrevHint(){
+  const h=document.getElementById('prev-hint');
+  if(tests.length===0){ h.classList.remove('show'); return; }
+  const prev=[...tests].sort((a,b)=>b.date.localeCompare(a.date))[0];
+  h.classList.add('show');
+  const items=[['CMJ',prev.cmj,'cm'],['SJ',prev.sj,'cm'],['RSI',prev.rsi,''],['10M',prev.sprint10m,'s'],['深蹲',prev.sq1rm,'kg'],['体重',prev.bw,'kg']].filter(i=>i[1]!=null);
+  h.innerHTML='<span style="font-size:10px;color:var(--text3);">上次测试 '+prev.date+'</span><br/>'+items.map(i=>`<strong style="color:var(--text);">${i[0]} ${i[1]}${i[2]}</strong>`).join('　');
+}
+function checkAsym(){
+  function ch(iL,iR,wId){ const L=parseFloat(document.getElementById(iL).value),R=parseFloat(document.getElementById(iR).value),el=document.getElementById(wId); if(L>0&&R>0) el.classList.toggle('show',Math.abs(L-R)/Math.max(L,R)>0.1); else el.classList.remove('show'); }
+  ch('ct-slL','ct-slR','asym-sl'); ch('ct-lhL','ct-lhR','asym-lh');
+}
+function logTest(){
+  const date=document.getElementById('ct-date').value; if(!date){ toast('请选择日期'); return; }
+  const g=id=>{ const v=document.getElementById(id).value; return v!==''?parseFloat(v):null; };
+  const e={id:uid(),date,bw:g('ct-bw'),cmj:g('ct-cmj'),sj:g('ct-sj'),rsi:g('ct-rsi'),slL:g('ct-slL'),slR:g('ct-slR'),lhL:g('ct-lhL'),lhR:g('ct-lhR'),sprint10m:g('ct-10m'),broadJump:g('ct-bj'),sq1rm:g('ct-sq'),grip:g('ct-grip'),t505:g('ct-505'),bodyFat:g('ct-bf'),note:document.getElementById('ct-note').value};
+  const n=['bw','cmj','sj','rsi','slL','slR','lhL','lhR','sprint10m','broadJump','sq1rm','grip','t505','bodyFat'].filter(k=>e[k]!=null).length;
+  if(n===0){ toast('请至少填写一项'); return; }
+  tests.push(e); save();
+  ['ct-bw','ct-cmj','ct-sj','ct-rsi','ct-slL','ct-slR','ct-lhL','ct-lhR','ct-10m','ct-bj','ct-sq','ct-grip','ct-505','ct-bf','ct-note'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('asym-sl').classList.remove('show'); document.getElementById('asym-lh').classList.remove('show');
+  toast(`已保存 ${n} 项测试数据 ✓`); renderPrevHint();
+}
+
+// ── History ────────────────────────────────────────
+function renderHistory(){ if(curHTab==='load') renderLoadH(); else renderTestH(); }
+function renderLoadH(){
+  const types=[...new Set(loads.map(s=>s.type))];
+  document.getElementById('type-filters').innerHTML=['all',...types].map(t=>`<button class="fchip ${t===curTypeFilter?'active':''}" onclick="setTF('${t}',this)">${t==='all'?'全部':t}</button>`).join('');
+  const fl=curTypeFilter==='all'?loads:loads.filter(s=>s.type===curTypeFilter);
+  const sl=[...fl].sort((a,b)=>b.date.localeCompare(a.date));
+  const list=document.getElementById('load-list');
+  if(!sl.length){ list.innerHTML='<div class="empty">暂无训练记录</div>'; return; }
+  list.innerHTML=sl.map(s=>`<div class="log-item"><div class="log-hd"><div><div class="log-title">${s.type}</div><div class="log-meta">${s.date} · ${s.duration}min · RPE ${s.rpe}/10${s.note?' · '+s.note:''}</div></div><div class="log-au">${s.au}</div></div><div class="log-acts"><button class="lbtn lbtn-e" onclick="openEdit('${s.id}')">编辑</button><button class="lbtn lbtn-d" onclick="delLoad('${s.id}')">删除</button></div></div>`).join('');
+}
+function renderTestH(){
+  const sl=[...tests].sort((a,b)=>b.date.localeCompare(a.date));
+  const list=document.getElementById('test-list');
+  if(!sl.length){ list.innerHTML='<div class="empty">暂无体测记录</div>'; return; }
+  list.innerHTML=sl.map(t=>{ const vals=[t.bw?`体重 ${t.bw}kg`:'',t.cmj?`CMJ ${t.cmj}cm`:'',t.sj?`SJ ${t.sj}cm`:'',t.rsi?`RSI ${t.rsi}`:'',t.sprint10m?`10M ${t.sprint10m}s`:'',t.sq1rm?`深蹲1RM ${t.sq1rm}kg`:''].filter(Boolean).slice(0,4).join(' · '); return `<div class="log-item"><div class="log-hd"><div><div class="log-title">体能测试</div><div class="log-meta">${t.date}${t.note?' · '+t.note:''}</div><div style="font-size:11px;color:var(--text2);margin-top:5px;">${vals}</div></div></div><div class="log-acts"><button class="lbtn lbtn-d" onclick="delTest('${t.id}')">删除</button></div></div>`; }).join('');
+}
+function setTF(t,el){ curTypeFilter=t; document.querySelectorAll('.fchip').forEach(c=>c.classList.remove('active')); el.classList.add('active'); renderLoadH(); }
+function showHTab(id,el){ curHTab=id; document.querySelectorAll('.htab').forEach(t=>t.classList.remove('active')); el.classList.add('active'); document.getElementById('ht-load').style.display=id==='load'?'block':'none'; document.getElementById('ht-tests').style.display=id==='tests'?'block':'none'; renderHistory(); }
+function delLoad(id){ if(!confirm('确定删除？')) return; loads=loads.filter(s=>s.id!==id); save(); renderHistory(); toast('已删除'); }
+function delTest(id){ if(!confirm('确定删除？')) return; tests=tests.filter(t=>t.id!==id); save(); renderHistory(); toast('已删除'); }
+
+// ── Edit modal ─────────────────────────────────────
+function openEdit(id){ const s=loads.find(x=>x.id===id); if(!s) return; document.getElementById('edit-id').value=s.id; document.getElementById('edit-date').value=s.date; document.getElementById('edit-type').value=s.type; document.getElementById('edit-dur').value=s.duration; document.getElementById('edit-rpe').value=s.rpe; document.getElementById('edit-note').value=s.note||''; document.getElementById('edit-modal').classList.add('open'); }
+function closeModal(){ document.getElementById('edit-modal').classList.remove('open'); }
+function saveEdit(){ const id=document.getElementById('edit-id').value,idx=loads.findIndex(s=>s.id===id); if(idx<0) return; const dur=parseInt(document.getElementById('edit-dur').value),rpe=parseInt(document.getElementById('edit-rpe').value); loads[idx]={...loads[idx],date:document.getElementById('edit-date').value,type:document.getElementById('edit-type').value,duration:dur,rpe,au:dur*rpe,note:document.getElementById('edit-note').value}; save(); closeModal(); renderHistory(); toast('已更新 ✓'); }
+
+// ── Methodology toggle ─────────────────────────────
+function toggleMethod(){ const b=document.getElementById('method-body'),c=document.getElementById('method-chev'); b.classList.toggle('open'); c.classList.toggle('open'); }
+
+// ── Export/Import ──────────────────────────────────
+function renderExport(){ document.getElementById('exp-lc').textContent=loads.length; document.getElementById('exp-tc').textContent=tests.length; }
+function toCSV(rows){ return rows.map(r=>r.map(v=>'"'+(v==null?'':v)+'"').join(',')).join('\n'); }
+function dl(content,name,type){ const b=new Blob([content],{type}),u=URL.createObjectURL(b),a=document.createElement('a'); a.href=u; a.download=name; a.click(); URL.revokeObjectURL(u); }
+function exportCSV(t){ if(t==='load'){ const rows=[['date','type','duration_min','rpe','load_au','note']]; [...loads].sort((a,b)=>a.date.localeCompare(b.date)).forEach(s=>rows.push([s.date,s.type,s.duration,s.rpe,s.au,s.note||''])); dl('\uFEFF'+toCSV(rows),'training_load.csv','text/csv;charset=utf-8'); } else { const rows=[['date','body_weight_kg','cmj_cm','sj_cm','rsi','sl_L','sl_R','lh_L','lh_R','sprint_10m_s','broad_jump_cm','squat_1rm_kg','grip_kg','505_s','body_fat_pct','note']]; [...tests].sort((a,b)=>a.date.localeCompare(b.date)).forEach(t=>rows.push([t.date,t.bw,t.cmj,t.sj,t.rsi,t.slL,t.slR,t.lhL,t.lhR,t.sprint10m,t.broadJump,t.sq1rm,t.grip,t.t505,t.bodyFat,t.note])); dl('\uFEFF'+toCSV(rows),'performance_tests.csv','text/csv;charset=utf-8'); } toast('CSV 已下载'); }
+function exportJSON(){ dl(JSON.stringify({version:2,exported:new Date().toISOString(),loads,tests},null,2),'trackload_backup.json','application/json'); toast('备份已下载'); }
+function importJSON(){ const f=document.getElementById('import-file').files[0]; if(!f){ toast('请先选择文件'); return; } const r=new FileReader(); r.onload=e=>{ try{ const d=JSON.parse(e.target.result); if(!d.loads||!d.tests) throw 0; if(!confirm(`导入 ${d.loads.length} 条负荷 + ${d.tests.length} 条体测，覆盖当前？`)) return; loads=d.loads; tests=d.tests; save(); toast('已恢复 ✓'); renderExport(); }catch(e){ toast('文件格式错误'); } }; r.readAsText(f); }
+function clearAll(){ if(!confirm('确定清空全部数据？建议先备份。')) return; loads=[]; tests=[]; save(); renderExport(); toast('已清空'); }
+
+// ── Page routing ───────────────────────────────────
+function showPage(id,el){ document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active')); document.getElementById('page-'+id).classList.add('active'); if(el) el.classList.add('active'); const map={dash:renderDashboard,history:renderHistory,export:renderExport,test:renderPrevHint}; if(map[id]) map[id](); }
+
+// ── Init ───────────────────────────────────────────
+initLogForm();
+initTestForm();
+renderDashboard();
+</script>
+</body>
+</html>
